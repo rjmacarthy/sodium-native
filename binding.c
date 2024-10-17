@@ -75,24 +75,26 @@ napi_value sn_sodium_free (napi_env env, napi_callback_info info) {
 napi_value sn_sodium_malloc (napi_env env, napi_callback_info info) {
   SN_ARGV(1, sodium_malloc);
 
-  SN_ARGV_UINT32(size, 0)
+  SN_ARGV_UINT32(length, 0)
 
-  void *ptr = sodium_malloc(size);
+  void *data = sodium_malloc(length);
 
-  SN_THROWS(ptr == NULL, "ENOMEM")
+  SN_THROWS(data == NULL, "ENOMEM")
   napi_adjust_external_memory(env, 4 * 4096, NULL);
 
-  SN_THROWS(ptr == NULL, "sodium_malloc failed");
+  SN_THROWS(data == NULL, "sodium_malloc failed");
 
+  // https://www.electronjs.org/blog/v8-memory-cage
   napi_value buf, value, array_buf;
+  void* copied_data = NULL;
+  napi_create_buffer_copy(env, length, data, &copied_data, &buf);
 
-  SN_STATUS_THROWS(napi_create_external_buffer(env, size, ptr, NULL, NULL, &buf), "failed to create a n-api buffer")
   SN_STATUS_THROWS(napi_get_boolean(env, true, &value), "failed to create boolean")
 
   SN_STATUS_THROWS(napi_get_named_property(env, buf, "buffer", &array_buf), "failed to get arraybuffer")
   SN_STATUS_THROWS(napi_set_named_property(env, buf, "secure", value), "failed to set secure property")
 
-  SN_STATUS_THROWS(napi_wrap(env, array_buf, ptr, sn_sodium_free_finalise, NULL, NULL), "failed to wrap")
+  SN_STATUS_THROWS(napi_wrap(env, array_buf, data, sn_sodium_free_finalise, NULL, NULL), "failed to wrap")
 
   return buf;
 }
